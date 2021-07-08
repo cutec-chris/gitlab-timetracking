@@ -15,6 +15,9 @@ class GitLabTimeTracking():
     def _connect(self):
         """ connects to gitlab server & gets the user that will be analyzed """
         token = self.args.private_token
+        if self.args.url == DEFAULT_URL:
+            if 'URL' in self.config:
+                self.args.url = self.config['URL']
         if token is None:
             try:
                 token = os.environ['PRIVATE_TOKEN']
@@ -22,8 +25,9 @@ class GitLabTimeTracking():
                 if 'PRIVATE_TOKEN' in self.config:
                     token = self.config['PRIVATE_TOKEN']
                 else:
-                    self.config['PRIVATE_TOKEN'] = input("Enter your private token from Gitlab:")
+                    self.config['PRIVATE_TOKEN'] = input("Enter your private token from "+self.args.url+":")
                     token = self.config['PRIVATE_TOKEN']
+                    self.config['URL'] = self.args.url
                 with open(self.config_path,'w') as config_file:
                     json.dump(self.config,config_file)
                 if token is None:
