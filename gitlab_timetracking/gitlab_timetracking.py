@@ -5,6 +5,10 @@ class GitLabTimeTracking():
     def interactive(self):
         TimeTrackingShell(self).cmdloop()
     def start(self,cmdline):
+        if  'project' in self.config\
+        and 'task' in self.config\
+        and 'started' in self.config:
+            self.stop()
         if not self.project:
             logging.error('No Project selected!')
             return False
