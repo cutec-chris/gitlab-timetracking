@@ -1,5 +1,5 @@
+#!/usr/bin/env python
 import timesheet_gitlab,gitlab,argparse,os,pathlib,json,sys,logging,pygit2
-
 DEFAULT_URL = 'https://GitLab.com/'
 class GitLabTimeTracking():
     def start(self,cmdline):
@@ -7,24 +7,27 @@ class GitLabTimeTracking():
     def stop(self,cmdline):
         pass
     def _find_project(self):
-        if self.remoteurl:
-            prepos = self.gl.projects.list(ssh_url_to_repo=self.remoteurl)
+        if self.remote:
+            prepos = self.gl.projects.list(ssh_url_to_repo=self.remote.url)
             for arepo in prepos:
-                if arepo.ssh_url_to_repo == self.remoteurl\
-                or arepo.http_url_to_repo == self.remoteurl:
+                if arepo.ssh_url_to_repo == self.remote.url\
+                or arepo.http_url_to_repo == self.remote.url:
                     self.project = arepo
                     logging.debug('project:'+self.project)
                     break
     def _check_repo(self):
         repo = pygit2.Repository(str(pathlib.Path('.')))
         self.branch = repo.head.shorthand
-        self.remoteurl = None
+        self.remote = None
         logging.debug('we are on branch:'+self.branch)
+        glurl = self.args.url.lower()
+        if '://' in glurl:
+            glurl = glurl[glurl.find('://')+3:]
         for r in repo.remotes:
             logging.debug('checking remote:%s (%s)' % (r.name,r.url)) 
-            if r.url.lower().startswith(self.args.url.lower()):
-                self.remoteurl = r
-                logging.debug('remote url:'+self.remoteurl)
+            if glurl in r.url.lower():
+                self.remote = r
+                logging.debug('remote::%s (%s)' % (r.name,r.url))
     def __init__(self):
         self.args = None
         self.gl = None
