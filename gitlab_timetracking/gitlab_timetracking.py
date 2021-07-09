@@ -78,7 +78,8 @@ class GitLabTimeTracking():
                 if arepo.ssh_url_to_repo == self.remote.url\
                 or arepo.http_url_to_repo == self.remote.url:
                     if 'started' in self.config:
-                        logging.info('aborting set project, runing task on other project')
+                        logging.info('aborting set project, runing task on other project, found project:')
+                        logging.info('project '+str(arepo.id))
                     else:
                         self.project = arepo
                         self.setproject(arepo.id)
