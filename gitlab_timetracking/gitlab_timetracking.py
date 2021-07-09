@@ -33,6 +33,18 @@ class GitLabTimeTracking():
                 logging.info('spend %s on task %s' % (ftime,self.task.title))
             except BaseException as e:
                 logging.error(str(e))
+    def status(self):
+        if  'project' in self.config\
+        and 'task' in self.config\
+        and 'started' in self.config:
+            atime = time.time()-self.config['started']
+            atime=atime/60/60
+            self.project = self.gl.projects.get(self.config['project'])
+            self.task = self.project.issues.get(self.config['task'])
+            ftime = '{0:0.0f}h{1:0.0f}m'.format(*divmod(atime * 60, 60))
+            logging.info('%s on task %s' % (ftime,self.task.title))
+        else:
+            logging.info('no task started')
     def setproject(self,cmdline):
         self.project = None
         try:
@@ -146,6 +158,7 @@ class GitLabTimeTracking():
         self._connect()
         self._check_repo()
         self._find_project()
+        self.status()
         if self.args.start\
         or self.args.stop:
             pass
@@ -169,6 +182,9 @@ class TimeTrackingShell(cmd.Cmd):
     def do_project(self, arg):
         'Select an Project with Gitlab URL'
         self.TimeTracking.setproject(arg)
+    def do_status(self, arg):
+        'Shows status if an task is running'
+        self.TimeTracking.status()
     def do_quit(self, arg):
         'Exit timetracking'
         sys.exit()
