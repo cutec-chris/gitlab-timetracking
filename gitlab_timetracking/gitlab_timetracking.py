@@ -50,9 +50,11 @@ class GitLabTimeTracking():
         try:
             aproject = self.gl.projects.get(cmdline)
             self.project = aproject
-        except:
+        except BaseException as e:
+            logging.debug(str(e))
             prepos = self.gl.projects.list(web_url=cmdline)
             for arepo in prepos:
+                logging.debug('checking '+arepo.web_url)
                 if arepo.web_url == cmdline:
                     self.project = arepo
                     break
@@ -64,12 +66,22 @@ class GitLabTimeTracking():
     def _find_project(self):
         self.project = None
         if self.remote:
-            prepos = self.gl.projects.list(ssh_url_to_repo=self.remote.url)
+            asearch = self.remote.url
+            if '.git' in asearch:
+                while asearch.find('/')>-1:
+                    asearch = asearch[asearch.find('/')+1:]
+                asearch = asearch.replace('.git','')
+            prepos = self.gl.projects.list(search=asearch)
+            logging.debug('repo search: '+str(len(prepos)))
             for arepo in prepos:
+                logging.debug('checking '+arepo.name)
                 if arepo.ssh_url_to_repo == self.remote.url\
                 or arepo.http_url_to_repo == self.remote.url:
-                    self.project = arepo
-                    self.setproject(arepo.id)
+                    if 'started' in self.config:
+                        logging.info('aborting set project, runing task on other project')
+                    else:
+                        self.project = arepo
+                        self.setproject(arepo.id)
                     break
         if 'project' in self.config:
             self.setproject(self.config['project'])
