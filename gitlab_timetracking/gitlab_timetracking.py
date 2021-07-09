@@ -14,6 +14,7 @@ class GitLabTimeTracking():
             return False
         self.config['task'] = str(self.task.iid)
         self.config['started'] = time.time()
+        self._save()
         logging.info('task "%s" started' % self.task.title)
     def stop(self,cmdline=''):
         if  'project' in self.config\
@@ -24,8 +25,14 @@ class GitLabTimeTracking():
             self.project = self.gl.projects.get(self.config['project'])
             self.task = self.project.issues.get(self.config['task'])
             ftime = '{0:0.0f}h{1:0.0f}m'.format(*divmod(atime * 60, 60))
-            self.task.add_spent_time(ftime)
-            logging.info('spend %s on task %s' % (ftime,self.task.title))
+            try:
+                self.task.add_spent_time(ftime)
+                del self.config['task']
+                del self.config['started']
+                self._save()
+                logging.info('spend %s on task %s' % (ftime,self.task.title))
+            except BaseException as e:
+                logging.error(str(e))
     def setproject(self,cmdline):
         self.project = None
         try:
@@ -52,6 +59,8 @@ class GitLabTimeTracking():
                     self.project = arepo
                     self.setproject(arepo.id)
                     break
+        if 'project' in self.config:
+            self.setproject(self.config['project'])
     def _check_repo(self):
         repo = pygit2.Repository(str(pathlib.Path('.')))
         self.branch = repo.head.shorthand
@@ -75,6 +84,9 @@ class GitLabTimeTracking():
                 self.config = json.load(config_file)
         except:
             self.config = {}
+    def _save(self):
+        with open(self.config_path,'w') as config_file:
+            json.dump(self.config,config_file)
     def _connect(self):
         """ connects to gitlab server & gets the user that will be analyzed """
         token = self.args.private_token
@@ -91,8 +103,6 @@ class GitLabTimeTracking():
                     self.config['PRIVATE_TOKEN'] = input("Enter your private token from "+self.args.url+":")
                     token = self.config['PRIVATE_TOKEN']
                     self.config['URL'] = self.args.url
-                with open(self.config_path,'w') as config_file:
-                    json.dump(self.config,config_file)
                 if token is None:
                     sys.exit(1)
         self.gl = gitlab.Gitlab(self.args.url, private_token=token)
