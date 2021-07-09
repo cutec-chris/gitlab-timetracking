@@ -1,7 +1,30 @@
-import timesheet_gitlab,gitlab,argparse,os,pathlib,json,sys,logging
+import timesheet_gitlab,gitlab,argparse,os,pathlib,json,sys,logging,pygit2
 
 DEFAULT_URL = 'https://GitLab.com/'
 class GitLabTimeTracking():
+    def start(self,cmdline):
+        pass
+    def stop(self,cmdline):
+        pass
+    def _find_project(self):
+        if self.remoteurl:
+            prepos = self.gl.projects.list(ssh_url_to_repo=self.remoteurl)
+            for arepo in prepos:
+                if arepo.ssh_url_to_repo == self.remoteurl\
+                or arepo.http_url_to_repo == self.remoteurl:
+                    self.project = arepo
+                    logging.debug('project:'+self.project)
+                    break
+    def _check_repo(self):
+        repo = pygit2.Repository(str(pathlib.Path('.')))
+        self.branch = repo.head.shorthand
+        self.remoteurl = None
+        logging.debug('we are on branch:'+self.branch)
+        for r in repo.remotes:
+            logging.debug('checking remote:%s (%s)' % (r.name,r.url)) 
+            if r.url.lower().startswith(self.args.url.lower()):
+                self.remoteurl = r
+                logging.debug('remote url:'+self.remoteurl)
     def __init__(self):
         self.args = None
         self.gl = None
@@ -43,17 +66,6 @@ class GitLabTimeTracking():
         parser = argparse.ArgumentParser(description=__doc__,
                                          formatter_class=argparse.RawTextHelpFormatter)
         p_add = parser.add_argument
-        p_add('START', nargs='?', default='today',
-              help='start date for timesheet as DD-MM-YY.\n'
-                   'For instance 20-01-21 for 20 Jan 2021.\n'
-                   'If the year or month is left out then current year/month'
-                   ' will be used.\n'
-                   'If not specified at all the timesheet for today will be'
-                   ' produced')
-        p_add('FINISH', nargs='?',
-              help='finish date for timesheet as DD-MM-YY.\n'
-                   'If not specified the timesheet for START day will'
-                   ' be produced.')
         p_add('-p', '--private_token', metavar='TOKEN',
               help='private token to connect to the GitLab Server. This must\n'
                    'be specified unless the token is supplied using the shell\n'
@@ -61,16 +73,14 @@ class GitLabTimeTracking():
                    ' The token must have read_api access.')
         p_add('-u', '--url', default=DEFAULT_URL,
               help=f'the url of the GitLab server, defaults to {DEFAULT_URL}')
-        p_add('-f', '--filter',
-              help='only include projects whose name includes FILTER')
-        p_add('-s', '--summary', action='store_true',
-              help='do not print daily timesheets. Only the initial summary.')
-        p_add('-d', '--details', action='store_true',
-              help='For each daily timesheet add a detailed list of each '
-                   'individual activities. ')
-        p_add('--debug', action='store_true',
+        p_add('--debug', action="store_true",
               help='turn on debug message logging output\n'
                    '(only useful for the program developers).')
+        p_add('--start', 
+              help='Starts timetracking on an task\n'
+                   'specify task with gitlabs #x task number')
+        p_add('--stop', 
+              help='Stops timetracking on actual task\n')
         return parser
     def _parse_command_line_args(self, parser):
         self.args = parser.parse_args()
@@ -79,6 +89,10 @@ class GitLabTimeTracking():
         self._parse_command_line_args(parser)
     def run(self):
         self._deal_with_command_line_args()
+        if self.args.debug:
+            logging.basicConfig(level=logging.DEBUG)
         self._connect()
+        self._check_repo()
+        self._find_project()
 if __name__ == "__main__":
     GitLabTimeTracking().run()
