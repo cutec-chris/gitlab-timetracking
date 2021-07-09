@@ -1,19 +1,56 @@
 #!/usr/bin/env python
-import timesheet_gitlab,gitlab,argparse,os,pathlib,json,sys,logging,pygit2
+import timesheet_gitlab,gitlab,argparse,os,pathlib,json,sys,logging,pygit2,cmd,time,datetime
 DEFAULT_URL = 'https://GitLab.com/'
 class GitLabTimeTracking():
+    def interactive(self):
+        TimeTrackingShell(self).cmdloop()
     def start(self,cmdline):
-        pass
-    def stop(self,cmdline):
-        pass
+        if not self.project:
+            logging.error('No Project selected!')
+            return False
+        self.task = self.project.issues.get(cmdline)
+        if not self.task:
+            logging.error('No Issue selected!')
+            return False
+        self.config['task'] = str(self.task.iid)
+        self.config['started'] = time.time()
+        logging.info('task "%s" started' % self.task.title)
+    def stop(self,cmdline=''):
+        if  'project' in self.config\
+        and 'task' in self.config\
+        and 'started' in self.config:
+            atime = time.time()-self.config['started']
+            atime=atime/60/60
+            self.project = self.gl.projects.get(self.config['project'])
+            self.task = self.project.issues.get(self.config['task'])
+            ftime = '{0:0.0f}h{1:0.0f}m'.format(*divmod(atime * 60, 60))
+            self.task.add_spent_time(ftime)
+            logging.info('spend %s on task %s' % (ftime,self.task.title))
+    def setproject(self,cmdline):
+        self.project = None
+        try:
+            aproject = self.gl.projects.get(cmdline)
+            self.project = aproject
+        except:
+            prepos = self.gl.projects.list(web_url=cmdline)
+            for arepo in prepos:
+                if arepo.web_url == cmdline:
+                    self.project = arepo
+                    break
+        if self.project:
+            self.config['project'] = str(self.project.id)
+            logging.info('project changed to:'+str(self.project.name))
+        else:
+            logging.error('project not found')
     def _find_project(self):
+        self.project = None
         if self.remote:
             prepos = self.gl.projects.list(ssh_url_to_repo=self.remote.url)
             for arepo in prepos:
                 if arepo.ssh_url_to_repo == self.remote.url\
                 or arepo.http_url_to_repo == self.remote.url:
                     self.project = arepo
-                    logging.debug('project:'+self.project)
+                    self.setproject(arepo.id)
                     break
     def _check_repo(self):
         repo = pygit2.Repository(str(pathlib.Path('.')))
@@ -94,8 +131,39 @@ class GitLabTimeTracking():
         self._deal_with_command_line_args()
         if self.args.debug:
             logging.basicConfig(level=logging.DEBUG)
+        else:
+            logging.basicConfig(level=logging.INFO)
         self._connect()
         self._check_repo()
         self._find_project()
+        if self.args.start\
+        or self.args.stop:
+            pass
+        else:
+            self.interactive()
+    def __del__(self):
+        self.stop()
+class TimeTrackingShell(cmd.Cmd):
+    intro = 'Welcome to timetracking. Type help or ? to list commands.\n'
+    prompt = '(timetracking) '
+    file = None
+    def __init__(self, TimeTracking, completekey='tab', stdin=sys.stdin, stdout=sys.stdout) -> None:
+        super().__init__(completekey=completekey, stdin=stdin, stdout=stdout)
+        self.TimeTracking = TimeTracking
+    def do_start(self, arg):
+        'Start timetracking on specified Task (Gitlab #id)'
+        self.TimeTracking.start(arg)
+    def do_stop(self, arg):
+        'Start timetracking on specified Task (Gitlab #id)'
+        self.TimeTracking.stop(arg)
+    def do_project(self, arg):
+        'Select an Project with Gitlab URL'
+        self.TimeTracking.setproject(arg)
+    def do_quit(self, arg):
+        'Exit timetracking'
+        sys.exit()
 if __name__ == "__main__":
-    GitLabTimeTracking().run()
+    try:
+        GitLabTimeTracking().run()
+    except KeyboardInterrupt:
+        pass
