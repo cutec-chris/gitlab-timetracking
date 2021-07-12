@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-import timesheet_gitlab,gitlab,argparse,os,pathlib,json,sys,logging,pygit2,cmd,time,datetime
+import gitlab,argparse,os,pathlib,json,sys,logging,pygit2,cmd,time,datetime
+from timesheet_gitlab.timesheet_gitlab import GitLabTimeSheets
 DEFAULT_URL = 'https://GitLab.com/'
 class GitLabTimeTracking():
     def interactive(self):
@@ -37,6 +38,12 @@ class GitLabTimeTracking():
                 logging.info('spend %s on task %s' % (ftime,self.task.title))
             except BaseException as e:
                 logging.error(str(e))
+    def daily(self,cmd):
+        date_events = self.ts._date_events(datetime.datetime.today())
+        if date_events:
+            timeslots = self.ts._bin_events(date_events)        
+        for slot in timeslots:
+            print('%s-%s %s' % (str(slot.start),str(slot.finish),str(slot.activities)))
     def status(self):
         if  'project' in self.config\
         and 'task' in self.config\
@@ -142,6 +149,12 @@ class GitLabTimeTracking():
         self.user = self.gl.users.get(my_id)
         logging.debug(f'current_user={self.user.name} id={my_id}')
         self._save()
+        self.ts = GitLabTimeSheets()
+        self.ts.gl = self.gl
+        self.ts.user = self.user
+        self.ts.args = self.args
+        self.ts.args.filter = ''
+        self.ts.args.details = ''
     @staticmethod
     def _setup_command_line_options():
         parser = argparse.ArgumentParser(description=__doc__,
@@ -204,6 +217,9 @@ class TimeTrackingShell(cmd.Cmd):
     def do_status(self, arg):
         'Shows status if an task is running'
         self.TimeTracking.status()
+    def do_daily(self, arg):
+        'Shows daily list of times'
+        self.TimeTracking.daily(arg)
     def do_quit(self, arg):
         'Exit timetracking'
         sys.exit()
