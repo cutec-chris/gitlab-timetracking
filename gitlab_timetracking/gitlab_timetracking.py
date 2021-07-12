@@ -122,6 +122,7 @@ class GitLabTimeTracking():
         if self.args.url == DEFAULT_URL:
             if 'URL' in self.config:
                 self.args.url = self.config['URL']
+        self.config['URL'] = self.args.url
         if token is None:
             try:
                 token = os.environ['PRIVATE_TOKEN']
@@ -140,6 +141,7 @@ class GitLabTimeTracking():
         my_id = current_user.id
         self.user = self.gl.users.get(my_id)
         logging.debug(f'current_user={self.user.name} id={my_id}')
+        self._save()
     @staticmethod
     def _setup_command_line_options():
         parser = argparse.ArgumentParser(description=__doc__,
