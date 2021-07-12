@@ -1,5 +1,7 @@
 #!/usr/bin/env python
-import gitlab,argparse,os,pathlib,json,sys,logging,pygit2,cmd,time,datetime
+import gitlab,argparse,os,pathlib,json,sys,logging,cmd,time,datetime
+try: import pygit2
+except: pass
 from timesheet_gitlab.timesheet_gitlab import GitLabTimeSheets
 DEFAULT_URL = 'https://GitLab.com/'
 class GitLabTimeTracking():
@@ -98,18 +100,23 @@ class GitLabTimeTracking():
         if 'project' in self.config:
             self.setproject(self.config['project'])
     def _check_repo(self):
-        repo = pygit2.Repository(str(pathlib.Path('.')))
-        self.branch = repo.head.shorthand
-        self.remote = None
-        logging.debug('we are on branch:'+self.branch)
-        glurl = self.args.url.lower()
-        if '://' in glurl:
-            glurl = glurl[glurl.find('://')+3:]
-        for r in repo.remotes:
-            logging.debug('checking remote:%s (%s)' % (r.name,r.url)) 
-            if glurl in r.url.lower():
-                self.remote = r
-                logging.debug('remote::%s (%s)' % (r.name,r.url))
+        try:
+            repo = pygit2.Repository(str(pathlib.Path('.')))
+            self.branch = repo.head.shorthand
+            self.remote = None
+            logging.debug('we are on branch:'+self.branch)
+            glurl = self.args.url.lower()
+            if '://' in glurl:
+                glurl = glurl[glurl.find('://')+3:]
+            for r in repo.remotes:
+                logging.debug('checking remote:%s (%s)' % (r.name,r.url)) 
+                if glurl in r.url.lower():
+                    self.remote = r
+                    logging.debug('remote::%s (%s)' % (r.name,r.url))
+        except BaseException as e:
+            self.branch = None
+            self.remote = None
+            logging.info(str(e))
     def __init__(self):
         self.args = None
         self.gl = None
@@ -197,7 +204,8 @@ class GitLabTimeTracking():
         else:
             self.interactive()
     def __del__(self):
-        self.stop()
+        #self.stop()
+        pass
 class TimeTrackingShell(cmd.Cmd):
     intro = 'Welcome to timetracking. Type help or ? to list commands.\n'
     prompt = '(timetracking) '
