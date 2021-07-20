@@ -40,6 +40,16 @@ class GitLabTimeTracking():
                 logging.info('spend %s on task %s' % (ftime,self.task.title))
             except BaseException as e:
                 logging.error(str(e))
+    def list(self,cmd):
+        self.project = self.gl.projects.get(self.config['project'])
+        issues = self.project.issues.list(state='opened')
+        for issue in issues:
+            print('#%d %s' % (issue.iid,issue.title))
+    def abort(self,cmd):
+        del self.config['task']
+        del self.config['started']
+        self._save()
+        logging.info('no task started')
     def daily(self,cmd):
         date_events = self.ts._date_events(datetime.datetime.today())
         if date_events:
@@ -228,6 +238,12 @@ class TimeTrackingShell(cmd.Cmd):
     def do_daily(self, arg):
         'Shows daily list of times'
         self.TimeTracking.daily(arg)
+    def do_abort(self, arg):
+        'Aborts the current running task'
+        self.TimeTracking.abort(arg)
+    def do_list(self, arg):
+        'List open tasks in the current project'
+        self.TimeTracking.list(arg)
     def do_quit(self, arg):
         'Exit timetracking'
         sys.exit()
